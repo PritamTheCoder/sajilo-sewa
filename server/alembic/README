@@ -1,0 +1,15 @@
+Alembic migrations for the Sajilo Sewa backend.
+
+DATABASE_URL is read from the environment (.env) by alembic/env.py — do not
+hardcode it in alembic.ini.
+
+Common commands (run from server/):
+  alembic revision --autogenerate -m "describe change"   # generate a new migration after editing app/models
+  alembic upgrade head                                    # apply all pending migrations
+  alembic downgrade -1                                    # roll back one migration
+  alembic current                                         # show current DB revision
+
+After autogenerating a migration, always review the generated upgrade()/
+downgrade() before applying it — autogenerate can miss things like data
+backfills, check constraints, or column renames (it will see a rename as a
+drop + add).
