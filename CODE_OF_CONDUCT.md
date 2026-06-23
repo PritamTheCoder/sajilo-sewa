@@ -5,7 +5,7 @@
 
 ---
 
-## 🧑‍💻 Ownership
+## Ownership
 
 - **Person A** owns everything inside `/client/src/` — no one else touches it without asking
 - **Backend person / B ** owns everything inside `/server/` — models, services, routes, migrations as well as `dev` & `main` branches.
@@ -14,7 +14,7 @@
 
 ---
 
-## 📁 Repository Rules
+## Repository Rules
 
 - No direct pushes to `main` or `dev` — everything goes through a pull request
 - Branch naming: `frontend/name`, `backend/name`, `db/name`, `fix/name`
@@ -26,7 +26,7 @@
 
 ---
 
-## ✅ Definition of Done
+## Definition of Done
 
 A feature is **done** only when:
 - It works locally AND has been manually tested
@@ -37,7 +37,7 @@ A feature is **done** only when:
 
 ---
 
-## 💬 Communication
+## Communication
 
 - **Monday sync (30 min):** last week / this week / blockers — mandatory for all three
 - **Wednesday check (15 min):** on track or cut scope — not a demo day surprise
@@ -48,7 +48,7 @@ A feature is **done** only when:
 
 ---
 
-## 🔍 Code Review Standards
+## Code Review Standards
 
 - Every PR gets reviewed before merge — no self-merges, no skipping review to "save time"
 - Reviewer checks: does it follow `Architecture-and-Concept.md` conventions? Is business logic in `/services/`? Are there loading/error states?
@@ -58,7 +58,7 @@ A feature is **done** only when:
 
 ---
 
-## 🚫 Hard Rules — No Exceptions
+## Hard Rules — No Exceptions
 
 - No new technology added mid-project without team vote (all three must agree)
 - No features outside MVP scope without team vote
@@ -70,7 +70,7 @@ A feature is **done** only when:
 
 ---
 
-## ⚡ When Things Go Wrong
+## When Things Go Wrong
 
 - **Bug found:** open a GitHub Issue, assign it, fix it on a `fix/name` branch, PR to `dev`
 - **`dev` is broken:** the person who broke it fixes it the same day — not Person C's job
@@ -80,7 +80,7 @@ A feature is **done** only when:
 
 ---
 
-## 🤝 Team Standards
+## Team Standards
 
 - Help when asked — someone being blocked for a day costs the whole team
 - Credit contributions in PR descriptions — "built on Person A's component structure"
