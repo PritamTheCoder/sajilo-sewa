@@ -34,3 +34,5 @@ wiki/
 client/
 seed_bulk.py
 seed.py
+VIVA.md
+server/seed_reviews.py
