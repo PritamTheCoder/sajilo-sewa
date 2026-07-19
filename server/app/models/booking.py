@@ -18,6 +18,8 @@ class Booking(Base):
     status = Column(String(20), default='pending', nullable=False)  # pending|accepted|completed|cancelled
     booking_type = Column(String(20), default='scheduled')         # scheduled | emergency
     cancellation_reason = Column(String(300), nullable=True)
+    # 'customer' | 'provider' — the UI needs to name who cancelled.
+    cancelled_by = Column(String(20), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Booking references users twice (customer_id and provider_id) so each relationship

@@ -5,7 +5,7 @@ import { uploadUserPhoto } from '../api/auth';
 import { getMyBookings, getIncomingBookings } from '../api/bookings';
 import { getMyProviderProfile } from '../api/providers';
 import { getMyIdentity } from '../api/identity';
-import Navbar from '../components/Navbar';
+import Layout from '../components/Layout';
 import { Link } from 'react-router-dom';
 
 const ACTIVE_STATUSES = ['pending', 'accepted'];
@@ -125,9 +125,7 @@ export default function Profile() {
   };
 
   return (
-    <>
-      <Navbar />
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <Layout title="Profile" width="form">
         {/* Header card */}
         <div className="card p-6 mb-6">
           <div className="flex items-center gap-5">
@@ -326,7 +324,6 @@ export default function Profile() {
             </div>
           </div>
         )}
-      </main>
-    </>
+    </Layout>
   );
 }

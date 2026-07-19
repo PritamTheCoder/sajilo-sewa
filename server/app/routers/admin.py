@@ -9,7 +9,7 @@ from app.models.provider_witness import ProviderWitness
 from app.schemas.provider import ProviderProfileResponse
 from app.schemas.identity import IdentityAdminReview, IdentityResponse
 from app.dependencies.auth import require_role
-from app.services import identity_service, provider_service
+from app.services import identity_service, provider_service, notification_service
 from pydantic import BaseModel
 from typing import Optional
 
@@ -124,6 +124,28 @@ def approve_or_reject(
 
     profile.is_approved = data.is_approved
     profile.application_status = 'approved' if data.is_approved else 'rejected'
+
+    if data.is_approved:
+        notification_service.create_notification(
+            db,
+            user_id=profile.user_id,
+            type='provider_approved',
+            title='Your application was approved',
+            body='You can now receive bookings and apply to job listings.',
+            link='/dashboard/provider',
+            commit=False,
+        )
+    else:
+        notification_service.create_notification(
+            db,
+            user_id=profile.user_id,
+            type='provider_rejected',
+            title='Your application was not approved',
+            body='Please review your profile details and get in touch if you think this is a mistake.',
+            link='/dashboard/provider',
+            commit=False,
+        )
+
     db.commit()
     db.refresh(profile)
     return profile

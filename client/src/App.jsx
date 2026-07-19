@@ -1,14 +1,13 @@
-import { BrowserRouter, Routes, Route, useNavigate, useSearchParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { NotificationProvider } from './context/NotificationContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoadingSpinner from './components/LoadingSpinner';
-import { useEffect, lazy, Suspense } from 'react';
-import { linkWitnessAfterRegister } from './api/witness';
+import { lazy, Suspense } from 'react';
 
-// Route-level code splitting — each page ships as its own chunk so the initial
-// load stays light and navigation streams in on demand (SKILL §5 performance).
+// Route-level code splitting keeps the initial bundle small.
 const Home = lazy(() => import('./pages/Home'));
 const Browse = lazy(() => import('./pages/Browse'));
 const ProviderProfile = lazy(() => import('./pages/ProviderProfile'));
@@ -24,25 +23,12 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 const JobListings = lazy(() => import('./pages/JobListings'));
 const PostJob = lazy(() => import('./pages/PostJob'));
 
-// After login, if a witness_token redirect param exists, link it to the user
-function WitnessLinkBridge() {
-  const [params] = useSearchParams();
-  const navigate = useNavigate();
-  const token = params.get('witness_token');
-  useEffect(() => {
-    if (!token) return;
-    linkWitnessAfterRegister(token)
-      .catch(() => {})
-      .finally(() => navigate(`/vouch/${token}`, { replace: true }));
-  }, [token]);
-  return null;
-}
-
 export default function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
       <AuthProvider>
+        <NotificationProvider>
         <ToastProvider>
           <Suspense fallback={<LoadingSpinner fullPage />}>
           <Routes>
@@ -107,6 +93,7 @@ export default function App() {
           </Routes>
           </Suspense>
         </ToastProvider>
+        </NotificationProvider>
       </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

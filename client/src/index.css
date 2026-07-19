@@ -2,20 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Design tokens: semantic roles, not literal colors, so dark mode and any
+   future rebrand come for free. Values are space-separated RGB channels so
+   Tailwind opacity modifiers still work (bg-surface/50, text-danger/80). */
+
 @layer base {
+  :root {
+    --bg: 248 250 252;
+    --bg-subtle: 241 245 249;
+    --surface: 255 255 255;
+    --surface-hover: 248 250 252;
+
+    --border: 226 232 240;
+    --border-strong: 203 213 225;
+
+    --text: 15 23 42;
+    --text-muted: 71 85 105; /* 7.5:1 on --bg */
+    --text-subtle: 100 116 139; /* 4.7:1 on --bg — metadata only, never body copy */
+
+    --brand: 79 70 229;
+    --brand-hover: 67 56 202;
+    --brand-active: 55 48 163;
+    --brand-subtle: 238 242 255;
+    --on-brand: 255 255 255;
+
+    --success: 4 120 87;
+    --success-subtle: 209 250 229;
+    --warning: 180 83 9;
+    --warning-subtle: 254 243 199;
+    --danger: 185 28 28;
+    --danger-subtle: 254 226 226;
+    --info: 3 105 161;
+    --info-subtle: 224 242 254;
+
+    --ring: 99 102 241;
+  }
+
+  .dark {
+    --bg: 2 6 23;
+    --bg-subtle: 15 23 42;
+    --surface: 15 23 42;
+    --surface-hover: 30 41 59;
+
+    --border: 30 41 59;
+    --border-strong: 51 65 85;
+
+    --text: 241 245 249;
+    --text-muted: 148 163 184; /* 7.2:1 on --bg */
+    --text-subtle: 100 116 139; /* 4.6:1 on --bg */
+
+    --brand: 99 102 241;
+    --brand-hover: 129 140 248;
+    --brand-active: 165 180 252;
+    --brand-subtle: 30 27 75;
+    --on-brand: 255 255 255;
+
+    /* Status hues lift in dark mode — the light-mode values fail contrast on a
+       dark surface. Subtle backgrounds become low-alpha tints, not pale pastels. */
+    --success: 52 211 153;
+    --success-subtle: 6 78 59;
+    --warning: 251 191 36;
+    --warning-subtle: 69 39 6;
+    --danger: 248 113 113;
+    --danger-subtle: 69 10 10;
+    --info: 56 189 248;
+    --info-subtle: 12 74 110;
+
+    --ring: 129 140 248;
+  }
+
   body {
-    @apply bg-slate-50 text-slate-900 font-sans leading-relaxed
-      dark:bg-slate-950 dark:text-slate-100
-      transition-colors duration-300;
+    @apply bg-bg text-text font-sans leading-relaxed transition-colors duration-slow;
   }
 
-  /* Visible focus rings for keyboard navigation — SKILL §1 accessibility */
+  /* Visible focus ring for keyboard navigation. */
   *:focus-visible {
-    @apply outline-2 outline-offset-2 outline-brand-600 dark:outline-brand-400 rounded-sm;
+    @apply outline-2 outline-offset-2 outline-ring rounded-sm;
   }
 
-  /* Honour reduced-motion preference — SKILL §1.4 / §4 (mandatory a11y gate).
-     Strip transforms/animations but keep a quick opacity fade so feedback survives. */
+  /* Strip transforms and animations, but keep transitions fast enough that
+     interaction feedback still survives. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -29,59 +95,81 @@
 }
 
 @layer components {
-  .btn-primary {
+  /* .btn carries the box and motion, a variant carries color, a size carries
+     height and padding. Default is 44px to stay above the touch-target floor;
+     use .btn-sm only in dense, desktop-only contexts. */
+  .btn {
     @apply inline-flex items-center justify-center gap-2
-      h-11 px-6 rounded-lg font-semibold text-sm text-white
-      bg-brand-600 hover:bg-brand-700 active:scale-[0.98]
-      transition-all duration-200 ease-out
+      h-11 px-6 rounded-lg font-semibold text-body-sm
+      whitespace-nowrap select-none
+      transition-all duration-fast ease-premium
+      active:scale-[0.98]
       disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand text-on-brand hover:bg-brand-hover active:bg-brand-active;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2
-      h-11 px-6 rounded-lg font-semibold text-sm
-      text-brand-700 bg-brand-50 hover:bg-brand-100 active:scale-[0.98]
-      dark:text-brand-200 dark:bg-brand-500/15 dark:hover:bg-brand-500/25
-      transition-all duration-200 ease-out
-      disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+    @apply btn bg-brand-subtle text-brand hover:bg-brand-subtle/70;
+  }
+
+  .btn-outline {
+    @apply btn bg-surface text-text border border-border-strong hover:bg-surface-hover;
   }
 
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2
-      h-11 px-6 rounded-lg font-semibold text-sm text-white
-      bg-red-600 hover:bg-red-700 active:scale-[0.98]
-      transition-all duration-200 ease-out
-      disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+    @apply btn bg-danger text-white hover:bg-danger/90;
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2
-      h-11 px-4 rounded-lg font-medium text-sm
-      text-slate-600 hover:bg-slate-100 active:scale-[0.98]
-      dark:text-slate-300 dark:hover:bg-slate-800
-      transition-all duration-200 ease-out;
+    @apply btn px-4 font-medium text-text-muted hover:bg-surface-hover hover:text-text;
+  }
+
+  /* Sizes MUST stay after the variants: variants @apply the .btn base, which
+     carries h-11, and at equal specificity the later rule wins. Moving these
+     up would silently break `btn-primary btn-sm`. */
+  .btn-sm {
+    @apply h-9 px-4 text-caption;
+  }
+
+  .btn-md {
+    @apply h-11 px-6 text-body-sm;
+  }
+
+  .btn-lg {
+    @apply h-12 px-8 text-body;
   }
 
   .input-field {
-    @apply block w-full h-11 px-4 rounded-lg text-sm
-      border border-slate-300 bg-white text-slate-900
-      placeholder:text-slate-400
-      dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500
-      focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none
-      dark:focus:border-brand-400 dark:focus:ring-brand-400/20
-      transition-colors duration-200
-      disabled:bg-slate-100 disabled:text-slate-500
-      dark:disabled:bg-slate-800 dark:disabled:text-slate-500;
+    @apply block w-full h-11 px-4 rounded-lg text-body
+      border border-border-strong bg-surface text-text
+      placeholder:text-text-subtle
+      focus:border-brand focus:ring-2 focus:ring-ring/20 focus:outline-none
+      transition-colors duration-fast
+      disabled:bg-bg-subtle disabled:text-text-subtle disabled:cursor-not-allowed;
+  }
+
+  /* Paired with the icon in <InlineError>, so never color alone. */
+  .input-field[aria-invalid='true'] {
+    @apply border-danger focus:border-danger focus:ring-danger/20;
+  }
+
+  textarea.input-field {
+    @apply h-auto py-3 leading-relaxed;
   }
 
   .label {
-    @apply block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5;
+    @apply block text-body-sm font-medium text-text mb-1.5;
+  }
+
+  .hint {
+    @apply block text-caption text-text-subtle mt-1.5;
   }
 
   .card {
-    @apply bg-white rounded-xl border border-slate-200 shadow-sm
-      dark:bg-slate-900 dark:border-slate-800
-      transition-shadow duration-200;
+    @apply bg-surface rounded-xl border border-border shadow-sm transition-shadow duration-base;
   }
 
   .card-hover {
@@ -89,17 +177,68 @@
   }
 
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-caption font-medium;
+  }
+
+  .callout {
+    @apply flex gap-3 p-4 rounded-lg border text-body-sm;
+  }
+
+  .callout-info {
+    @apply callout bg-info-subtle border-info/20 text-info;
+  }
+
+  .callout-warning {
+    @apply callout bg-warning-subtle border-warning/20 text-warning;
+  }
+
+  .callout-success {
+    @apply callout bg-success-subtle border-success/20 text-success;
+  }
+
+  .callout-danger {
+    @apply callout bg-danger-subtle border-danger/20 text-danger;
+  }
+
+  /* Compose real layouts from these rather than reaching for a spinner. */
+  .skeleton {
+    @apply bg-border rounded-md animate-pulse;
+  }
+
+  .skeleton-text {
+    @apply skeleton h-4;
+  }
+
+  .skeleton-title {
+    @apply skeleton h-6;
+  }
+
+  .skeleton-avatar {
+    @apply skeleton rounded-full;
   }
 }
 
 @layer utilities {
-  /* Hide scrollbars on horizontally-scrolling tab strips (used in dashboards) */
+  /* Hide scrollbars on horizontally-scrolling tab strips. */
   .scrollbar-none {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
   .scrollbar-none::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Prices, ratings, counts. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Bottom tab bar and sticky bottom action bars. */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
