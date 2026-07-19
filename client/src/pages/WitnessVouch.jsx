@@ -4,8 +4,9 @@ import { useForm } from 'react-hook-form';
 import { getVouchRequest, submitVouch, submitDecline } from '../api/witness';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import Navbar from '../components/Navbar';
+import Layout from '../components/Layout';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { ConfirmDialog } from '../components/Dialog';
 
 export default function WitnessVouch() {
   const { token } = useParams();
@@ -18,6 +19,7 @@ export default function WitnessVouch() {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(null); // 'vouched' | 'declined'
+  const [confirmDecline, setConfirmDecline] = useState(false);
 
   const { register, handleSubmit } = useForm();
 
@@ -53,6 +55,7 @@ export default function WitnessVouch() {
     try {
       await submitDecline(token, {});
       setDone('declined');
+      setConfirmDecline(false);
     } catch (err) {
       addToast(err?.response?.data?.detail || 'Could not decline.', 'error');
     } finally {
@@ -60,13 +63,12 @@ export default function WitnessVouch() {
     }
   };
 
-  if (loading) return <><Navbar /><LoadingSpinner fullPage /></>;
+  if (loading) return <Layout width="narrow"><LoadingSpinner fullPage /></Layout>;
 
   if (error) {
     return (
-      <>
-        <Navbar />
-        <main className="max-w-md mx-auto px-4 py-16 text-center">
+      <Layout width="narrow">
+        <div className="py-12 text-center">
           <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
@@ -75,16 +77,15 @@ export default function WitnessVouch() {
           <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Invalid Invitation</h1>
           <p className="text-slate-500 text-sm mb-6">{error}</p>
           <Link to="/" className="btn-primary">Go to Home</Link>
-        </main>
-      </>
+        </div>
+      </Layout>
     );
   }
 
   if (done === 'vouched') {
     return (
-      <>
-        <Navbar />
-        <main className="max-w-md mx-auto px-4 py-16 text-center">
+      <Layout width="narrow">
+        <div className="py-12 text-center">
           <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -95,27 +96,25 @@ export default function WitnessVouch() {
             You've successfully vouched for <strong>{vouchRequest?.provider_name}</strong>. Your vouch helps build trust on the platform.
           </p>
           <Link to="/browse" className="btn-primary">Browse Providers</Link>
-        </main>
-      </>
+        </div>
+      </Layout>
     );
   }
 
   if (done === 'declined') {
     return (
-      <>
-        <Navbar />
-        <main className="max-w-md mx-auto px-4 py-16 text-center">
+      <Layout width="narrow">
+        <div className="py-12 text-center">
           <p className="text-slate-500 text-sm mb-6">You have declined this vouch request.</p>
           <Link to="/" className="btn-secondary">Go to Home</Link>
-        </main>
-      </>
+        </div>
+      </Layout>
     );
   }
 
   return (
-    <>
-      <Navbar />
-      <main className="max-w-lg mx-auto px-4 sm:px-6 py-10">
+    <Layout width="narrow">
+      <div className="py-4">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-brand-50 text-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -182,28 +181,40 @@ export default function WitnessVouch() {
         ) : (
           <form onSubmit={handleSubmit(handleVouch)} className="card p-6 space-y-4">
             <div>
-              <label className="label">Add a note (optional)</label>
+              <label htmlFor="vouch-statement" className="label">Add a note (optional)</label>
               <textarea
+                id="vouch-statement"
                 rows={3}
-                className="input-field h-auto py-2.5 resize-none"
+                className="input-field resize-none"
                 placeholder="How do you know this person? Why do you trust them?"
                 {...register('vouch_statement')}
               />
             </div>
-            <button type="submit" disabled={submitting} className="btn-primary w-full">
-              {submitting ? 'Submitting…' : 'I Vouch for This Provider'}
+            <button type="submit" disabled={submitting} className="btn-primary btn-lg w-full">
+              {submitting ? 'Submitting…' : 'I vouch for this provider'}
             </button>
             <button
               type="button"
-              onClick={handleDecline}
+              onClick={() => setConfirmDecline(true)}
               disabled={submitting}
-              className="w-full text-sm text-slate-400 hover:text-red-500 transition-colors py-2"
+              className="btn-ghost w-full text-text-muted hover:text-danger"
             >
               Decline this request
             </button>
           </form>
         )}
-      </main>
-    </>
+      </div>
+
+      <ConfirmDialog
+        open={confirmDecline}
+        onClose={() => setConfirmDecline(false)}
+        onConfirm={handleDecline}
+        loading={submitting}
+        title="Decline this request?"
+        description="The provider will be told you couldn't vouch for them. This can't be undone, and the invitation link will stop working."
+        confirmLabel="Decline"
+        cancelLabel="Go back"
+      />
+    </Layout>
   );
 }

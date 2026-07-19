@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState } from 'react';
-import Navbar from '../components/Navbar';
+import Layout from '../components/Layout';
 import { getCategories } from '../api/categories';
 import { getPlatformStats } from '../api/statistics';
 
@@ -40,24 +40,6 @@ function StatBlock({ value, label }) {
       <div className="text-2xl font-bold text-brand-700 dark:text-brand-300 tabular-nums">{value}</div>
       <div className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{label}</div>
     </div>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-8">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-            </svg>
-          </div>
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Sajilo Sewa</span>
-        </div>
-        <p className="text-xs text-slate-400 dark:text-slate-500">© {new Date().getFullYear()} Sajilo Sewa. Built by Pritam, Mahesh &amp; Sujan.</p>
-      </div>
-    </footer>
   );
 }
 
@@ -118,12 +100,12 @@ function LoggedInHome({ user, categories }) {
   const actions = ROLE_ACTIONS[user.role] || ROLE_ACTIONS.customer;
 
   return (
-    <main>
+    <div>
       {/* Personalized hero */}
       <section className="bg-gradient-to-br from-brand-600 via-brand-700 to-indigo-800 text-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
           <div className="animate-slide-up">
-            <p className="text-indigo-200 text-sm font-medium">Welcome back</p>
+            <p className="text-indigo-100 text-body-sm font-medium">Welcome back</p>
             <h1 className="mt-1 text-3xl sm:text-4xl font-bold tracking-tight">
               Namaste, {firstName} 👋
             </h1>
@@ -135,8 +117,8 @@ function LoggedInHome({ user, categories }) {
       </section>
 
       {/* Quick actions */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Quick actions</h2>
+      <section className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <h2 className="text-h2 text-text mb-4">Quick actions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {actions.map((a) => <QuickAction key={a.to} {...a} />)}
         </div>
@@ -144,10 +126,10 @@ function LoggedInHome({ user, categories }) {
 
       {/* Popular services — customers only */}
       {user.role === 'customer' && categories.length > 0 && (
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        <section className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pb-12">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Popular services</h2>
-            <Link to="/browse" className="text-sm font-medium text-brand-600 dark:text-brand-300 hover:underline">View all</Link>
+            <h2 className="text-h2 text-text">Popular services</h2>
+            <Link to="/browse" className="text-body-sm font-medium text-brand hover:underline">View all</Link>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {categories.slice(0, 6).map((c) => (
@@ -156,36 +138,36 @@ function LoggedInHome({ user, categories }) {
           </div>
         </section>
       )}
-
-      <Footer />
-    </main>
+    </div>
   );
 }
 
 /* ─── Logged-out: marketing landing with integrated search ─────────────────── */
 
-function LoggedOutHome({ categories, stats }) {
+function LoggedOutHome({ categories, stats, statsFailed }) {
   const navigate = useNavigate();
   const [searchCategory, setSearchCategory] = useState('');
   const [searchCity, setSearchCity] = useState('');
 
-  const displayCategories = categories.length > 0
+  const categoriesLoaded = categories.length > 0;
+
+  const displayCategories = categoriesLoaded
     ? categories.slice(0, 6)
     : ['plumbing', 'electrical', 'cleaning', 'tutoring', 'painting', 'carpentry']
         .map((slug) => ({ slug, name: slug[0].toUpperCase() + slug.slice(1) }));
 
   const displayStats = stats
     ? [
-        { value: `${stats.verified_providers}+`, label: 'Verified Providers' },
-        { value: `${stats.bookings_completed}+`, label: 'Bookings Completed' },
-        { value: stats.average_rating > 0 ? `${stats.average_rating}★` : '—', label: 'Average Rating' },
-        { value: `${stats.active_categories}+`, label: 'Service Categories' },
+        { value: `${stats.verified_providers}+`, label: 'Verified providers' },
+        { value: `${stats.bookings_completed}+`, label: 'Bookings completed' },
+        { value: stats.average_rating > 0 ? `${stats.average_rating}★` : '—', label: 'Average rating' },
+        { value: `${stats.active_categories}+`, label: 'Service categories' },
       ]
     : [
-        { value: '—', label: 'Verified Providers' },
-        { value: '—', label: 'Bookings Completed' },
-        { value: '—', label: 'Average Rating' },
-        { value: '—', label: 'Service Categories' },
+        { value: '—', label: 'Verified providers' },
+        { value: '—', label: 'Bookings completed' },
+        { value: '—', label: 'Average rating' },
+        { value: '—', label: 'Service categories' },
       ];
 
   const onSearch = (e) => {
@@ -197,11 +179,11 @@ function LoggedOutHome({ categories, stats }) {
   };
 
   return (
-    <main>
+    <div>
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-indigo-800 text-white">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=60 height=60 viewBox=0 0 60 60 xmlns=http://www.w3.org/2000/svg%3E%3Cg fill=none fill-rule=evenodd%3E%3Cg fill=%23ffffff fill-opacity=0.05%3E%3Cpath d=M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-30" />
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
+        <div className="relative max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
           <div className="max-w-2xl animate-slide-up">
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-3 py-1.5 text-sm font-medium mb-6">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
@@ -224,9 +206,12 @@ function LoggedOutHome({ categories, stats }) {
                 className="flex-1 h-12 px-4 rounded-xl text-sm bg-transparent text-slate-900 dark:text-slate-100 border-0 focus:ring-2 focus:ring-brand-500/30 focus:outline-none"
               >
                 <option value="">What do you need?</option>
-                {displayCategories.map((c) => (
-                  c.id ? <option key={c.id} value={c.id}>{c.name}</option> : <option key={c.slug} value="">{c.name}</option>
-                ))}
+                {/* Only real ids are selectable; the fallback list below is
+                    display-only until categories load. */}
+                {categoriesLoaded &&
+                  displayCategories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
               </select>
               <div className="hidden sm:block w-px bg-slate-200 dark:bg-slate-700 my-2" />
               <select
@@ -247,7 +232,7 @@ function LoggedOutHome({ categories, stats }) {
             </form>
 
             <div className="mt-5">
-              <Link to="/register" className="text-sm font-medium text-indigo-100 hover:text-white inline-flex items-center gap-1.5">
+              <Link to="/register" className="text-body-sm font-medium text-white hover:underline inline-flex items-center gap-1.5">
                 Want to offer your services? Become a provider
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
@@ -259,19 +244,26 @@ function LoggedOutHome({ categories, stats }) {
       </section>
 
       {/* Trust stats */}
-      <section className="bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800" aria-label="Platform statistics">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="bg-surface border-b border-border" aria-label="Platform statistics">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
             {displayStats.map((s) => <StatBlock key={s.label} {...s} />)}
           </div>
+          {statsFailed && (
+            <p className="text-caption text-text-subtle text-center mt-4">
+              Live figures are unavailable right now.
+            </p>
+          )}
         </div>
       </section>
 
       {/* Services grid */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16" aria-labelledby="services-heading">
+      <section className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-16" aria-labelledby="services-heading">
         <div className="text-center mb-10">
-          <h2 id="services-heading" className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">Popular Services</h2>
-          <p className="text-slate-500 dark:text-slate-400 mt-2">Find the right professional for any job around your home or office.</p>
+          <h2 id="services-heading" className="text-h2 sm:text-display text-text">Popular services</h2>
+          <p className="text-body text-text-muted mt-2">
+            Find the right professional for any job around your home or office.
+          </p>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {displayCategories.map((c) => (
@@ -289,20 +281,20 @@ function LoggedOutHome({ categories, stats }) {
       </section>
 
       {/* How it works */}
-      <section className="bg-slate-50 dark:bg-slate-900/50 border-y border-slate-100 dark:border-slate-800 py-16" aria-labelledby="how-heading">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="bg-bg-subtle border-y border-border py-16" aria-labelledby="how-heading">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 id="how-heading" className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">How It Works</h2>
-            <p className="text-slate-500 dark:text-slate-400 mt-2">Book a service in three simple steps.</p>
+            <h2 id="how-heading" className="text-h2 sm:text-display text-text">How it works</h2>
+            <p className="text-body text-text-muted mt-2">Book a service in three simple steps.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {HOW_IT_WORKS.map((item) => (
-              <div key={item.step} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 text-center shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-brand-600 text-white flex items-center justify-center text-lg font-bold mx-auto mb-4">
+              <div key={item.step} className="card p-6 text-center">
+                <div className="w-12 h-12 rounded-xl bg-brand text-on-brand flex items-center justify-center text-body-lg font-bold mx-auto mb-4 tabular">
                   {item.step}
                 </div>
-                <h3 className="font-semibold text-slate-900 dark:text-white mb-2">{item.title}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{item.desc}</p>
+                <h3 className="text-h3 text-text mb-2">{item.title}</h3>
+                <p className="text-body-sm text-text-muted">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -310,23 +302,23 @@ function LoggedOutHome({ categories, stats }) {
       </section>
 
       {/* CTA */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center" aria-labelledby="cta-heading">
-        <div className="bg-gradient-to-br from-brand-600 to-indigo-700 rounded-3xl p-10 text-white shadow-xl">
-          <h2 id="cta-heading" className="text-2xl sm:text-3xl font-bold mb-3">Ready to get started?</h2>
-          <p className="text-indigo-200 mb-8 text-base">Join customers and providers already using Sajilo Sewa across Nepal.</p>
-          <div className="flex flex-wrap justify-center gap-3">
-            <Link to="/register" className="btn-primary bg-white text-brand-700 hover:bg-indigo-50 h-12 px-6 text-base shadow">
-              Create Free Account
+      <section className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center" aria-labelledby="cta-heading">
+        <div className="bg-gradient-to-br from-brand-600 to-indigo-700 rounded-3xl p-8 sm:p-10 text-white shadow-xl">
+          <h2 id="cta-heading" className="text-h2 sm:text-display mb-3">Ready to get started?</h2>
+          <p className="text-indigo-50 mb-8">
+            Join customers and providers already using Sajilo Sewa across Nepal.
+          </p>
+          <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3">
+            <Link to="/register" className="btn btn-lg bg-white text-brand-700 hover:bg-indigo-50">
+              Create free account
             </Link>
-            <Link to="/browse" className="btn-ghost text-white hover:bg-white/20 h-12 px-6 text-base border border-white/30">
-              Browse Providers
+            <Link to="/browse" className="btn btn-lg text-white hover:bg-white/20 border border-white/40">
+              Browse providers
             </Link>
           </div>
         </div>
       </section>
-
-      <Footer />
-    </main>
+    </div>
   );
 }
 
@@ -334,18 +326,25 @@ export default function Home() {
   const { user } = useAuth();
   const [categories, setCategories] = useState([]);
   const [stats, setStats] = useState(null);
+  const [statsFailed, setStatsFailed] = useState(false);
 
   useEffect(() => {
-    getCategories().then((data) => setCategories(data.filter((c) => c.is_active))).catch(() => {});
-    getPlatformStats().then(setStats).catch(() => {});
+    getCategories()
+      .then((data) => setCategories(data.filter((c) => c.is_active)))
+      // Falls back to the hardcoded category list below.
+      .catch(() => {});
+    getPlatformStats()
+      .then(setStats)
+      .catch(() => setStatsFailed(true));
   }, []);
 
   return (
-    <>
-      <Navbar />
-      {user
-        ? <LoggedInHome user={user} categories={categories} />
-        : <LoggedOutHome categories={categories} stats={stats} />}
-    </>
+    <Layout width="full" padded={false}>
+      {user ? (
+        <LoggedInHome user={user} categories={categories} />
+      ) : (
+        <LoggedOutHome categories={categories} stats={stats} statsFailed={statsFailed} />
+      )}
+    </Layout>
   );
 }

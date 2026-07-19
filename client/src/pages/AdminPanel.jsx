@@ -6,7 +6,8 @@ import { reviewIdentity } from '../api/identity';
 import { useToast } from '../context/ToastContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
-import Navbar from '../components/Navbar';
+import Layout from '../components/Layout';
+import { identityStatus, vouchStatus } from '../utils/appearance';
 import { InlineError } from '../components/ErrorMessage';
 import AdminAnalytics from '../components/AdminAnalytics';
 import { formatDate } from '../utils/helpers';
@@ -95,20 +96,6 @@ function ProviderDrawer({ provider, onClose, onApprove }) {
     }
   };
 
-  const ID_STATUS = {
-    not_submitted: 'bg-slate-100 text-slate-500',
-    pending: 'bg-amber-100 text-amber-700',
-    verified: 'bg-emerald-100 text-emerald-700',
-    rejected: 'bg-red-100 text-red-700',
-  };
-
-  const VOUCH_COLORS = {
-    vouched: 'text-emerald-700',
-    pending: 'text-amber-600',
-    declined: 'text-red-500',
-    expired: 'text-slate-400',
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
@@ -147,8 +134,8 @@ function ProviderDrawer({ provider, onClose, onApprove }) {
           <div>
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Identity Verification</p>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ID_STATUS[provider.identity_status] || ID_STATUS.not_submitted}`}>
-                {provider.identity_status?.replace('_', ' ')}
+              <span className={`badge ${identityStatus(provider.identity_status).badgeClass}`}>
+                {identityStatus(provider.identity_status).label}
               </span>
             </div>
 
@@ -208,8 +195,8 @@ function ProviderDrawer({ provider, onClose, onApprove }) {
                       <p className="text-xs text-slate-500">{w.phone}{w.relationship ? ` · ${w.relationship}` : ''}{w.years_known ? ` · ${w.years_known}y` : ''}</p>
                       {w.has_account && <span className="text-[10px] bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded mt-1 inline-block">Has account</span>}
                     </div>
-                    <span className={`text-xs font-semibold capitalize ${VOUCH_COLORS[w.vouch_status] || 'text-slate-500'}`}>
-                      {w.vouch_status}
+                    <span className={`text-xs font-semibold ${vouchStatus(w.vouch_status).textClass}`}>
+                      {vouchStatus(w.vouch_status).label}
                     </span>
                   </div>
                 ))}
@@ -288,17 +275,8 @@ export default function AdminPanel() {
   const approved = providers.filter((p) => p.is_approved);
   const displayed = filter === 'pending' ? pending : filter === 'approved' ? approved : providers;
 
-  const ID_BADGE = {
-    not_submitted: 'bg-slate-100 text-slate-500',
-    pending: 'bg-amber-100 text-amber-700',
-    verified: 'bg-emerald-100 text-emerald-700',
-    rejected: 'bg-red-100 text-red-700',
-  };
-
   return (
-    <>
-      <Navbar />
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <Layout title="Admin">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Admin Panel</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Review provider applications, verify identities, and manage categories.</p>
@@ -312,20 +290,24 @@ export default function AdminPanel() {
             { label: 'All Providers', count: providers.length, cls: 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300' },
             { label: 'Categories', count: categories.length, cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' },
           ].map((s) => (
-            <div key={s.label} className={`rounded-xl p-4 cursor-pointer hover:opacity-90 transition-opacity ${s.cls}`}
+            <button
+              key={s.label}
+              type="button"
+              className={`rounded-xl p-4 text-left hover:opacity-90 transition-opacity ${s.cls}`}
               onClick={() => {
                 if (s.label === 'Categories') { setActiveTab('categories'); return; }
                 setActiveTab('providers');
                 setFilter(s.label === 'All Providers' ? 'all' : s.label.toLowerCase());
-              }}>
+              }}
+            >
               <div className="text-2xl font-bold tabular-nums">{s.count}</div>
               <div className="text-xs mt-0.5">{s.label}</div>
-            </div>
+            </button>
           ))}
         </div>
 
         {/* Tab bar */}
-        <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800/70 rounded-xl mb-6 w-fit">
+        <div className="flex gap-1 p-1 bg-bg-subtle rounded-xl mb-6 overflow-x-auto scrollbar-none">
           {['analytics', 'providers', 'categories'].map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition-all ${
@@ -369,13 +351,19 @@ export default function AdminPanel() {
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {displayed.map((p) => (
-                          <tr key={p.id}
-                            className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
-                            onClick={() => setDrawerProvider(p)}
-                          >
+                          <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                             <td className="px-4 py-3">
-                              <p className="font-medium text-slate-800 dark:text-slate-100">{p.user_name}</p>
-                              <p className="text-xs text-slate-400">{p.user_email}</p>
+                              <button
+                                type="button"
+                                onClick={() => setDrawerProvider(p)}
+                                className="text-left rounded-sm"
+                                aria-label={`Open full record for ${p.user_name}`}
+                              >
+                                <span className="block font-medium text-slate-800 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-300 transition-colors">
+                                  {p.user_name}
+                                </span>
+                                <span className="block text-xs text-slate-400">{p.user_email}</span>
+                              </button>
                             </td>
                             <td className="px-4 py-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">{p.city}{p.area ? `, ${p.area}` : ''}</td>
                             <td className="px-4 py-3">
@@ -388,8 +376,8 @@ export default function AdminPanel() {
                               {p.hourly_rate ? `Rs. ${p.hourly_rate.toLocaleString()}` : '—'}
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`badge text-xs ${ID_BADGE[p.identity_status] || ID_BADGE.not_submitted}`}>
-                                {p.identity_status?.replace('_', ' ') || 'none'}
+                              <span className={`badge ${identityStatus(p.identity_status).badgeClass}`}>
+                                {identityStatus(p.identity_status).label}
                               </span>
                             </td>
                             <td className="px-4 py-3">
@@ -402,7 +390,7 @@ export default function AdminPanel() {
                                 {p.is_approved ? 'Approved' : 'Pending'}
                               </span>
                             </td>
-                            <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            <td className="px-4 py-3">
                               {!p.is_approved ? (
                                 <button onClick={() => handleApproval(p.id, true)}
                                   className="text-xs h-8 px-3 rounded-lg font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors whitespace-nowrap">
@@ -471,7 +459,6 @@ export default function AdminPanel() {
             )}
           </div>
         )}
-      </main>
 
       {categoryModal && (
         <CategoryModal
@@ -488,6 +475,6 @@ export default function AdminPanel() {
           onApprove={handleApproval}
         />
       )}
-    </>
+    </Layout>
   );
 }

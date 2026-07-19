@@ -10,7 +10,7 @@ import { useToast } from '../context/ToastContext';
 import BookingCard from '../components/BookingCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage, { InlineError } from '../components/ErrorMessage';
-import Navbar from '../components/Navbar';
+import Layout from '../components/Layout';
 
 const STATUS_TABS = ['all', 'pending', 'accepted', 'completed', 'cancelled'];
 
@@ -293,7 +293,7 @@ function WitnessSection({ witnesses, onRefresh, profile }) {
             <form onSubmit={handleSubmit(onInvite)} className="space-y-3 border-t border-slate-100 pt-4 animate-fade-in">
               <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Invite someone to vouch for you</p>
               <p className="text-xs text-slate-500">They don't need to have a Sajilo Sewa account. They'll get a link to register and vouch for you.</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="label">Their Name <span className="text-red-500">*</span></label>
                   <input type="text" className="input-field" placeholder="Ram Bahadur" {...register('witness_name', { required: 'Required' })} />
@@ -421,7 +421,7 @@ function ProfileEditSection({ profile, categories, onSaved }) {
           <label className="label">Bio</label>
           <textarea rows={3} className="input-field h-auto py-2.5 resize-none" placeholder="Tell customers about your experience…" {...register('bio')} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">City <span className="text-red-500">*</span></label>
             <input type="text" className="input-field" placeholder="Kathmandu" {...register('city', { required: 'Required' })} />
@@ -552,14 +552,12 @@ export default function ProviderDashboard() {
   const filtered = activeTab === 'all' ? bookings : bookings.filter((b) => b.status === activeTab);
   const pendingCount = bookings.filter((b) => b.status === 'pending').length;
 
-  if (profileLoading) return <><Navbar /><LoadingSpinner fullPage /></>;
+  if (profileLoading) return <Layout width="form"><LoadingSpinner fullPage /></Layout>;
 
   // ── ONBOARDING VIEW ──
   if (!profile) {
     return (
-      <>
-        <Navbar />
-        <main className="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <Layout title="Become a provider" width="form">
           <div className="mb-6 text-center">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Complete Your Profile</h1>
             <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Submit your details to start receiving bookings.</p>
@@ -599,7 +597,7 @@ export default function ProviderDashboard() {
                   <InlineError message={errors.customService?.message} />
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="city" className="label">City <span className="text-red-500">*</span></label>
                   <input id="city" type="text" className="input-field" placeholder="Kathmandu" {...register('city', { required: 'City is required' })} />
@@ -622,8 +620,7 @@ export default function ProviderDashboard() {
               </button>
             </form>
           </div>
-        </main>
-      </>
+      </Layout>
     );
   }
 
@@ -633,9 +630,7 @@ export default function ProviderDashboard() {
     const identityStatus = identity?.verification_status || 'unverified';
 
     return (
-      <>
-        <Navbar />
-        <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <Layout title="Set up your profile" width="form">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Provider Setup</h1>
             <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Complete these steps to get approved.</p>
@@ -664,7 +659,7 @@ export default function ProviderDashboard() {
           </div>
 
           {/* Tab switcher for setup sections */}
-          <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800/70 rounded-xl mb-5 w-fit">
+          <div className="flex gap-1 p-1 bg-bg-subtle rounded-xl mb-5 overflow-x-auto scrollbar-none">
             {['identity', 'witnesses', 'profile'].map((s) => (
               <button key={s} onClick={() => setActiveSection(s)}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition-all
@@ -683,16 +678,13 @@ export default function ProviderDashboard() {
           {activeSection === 'profile' && (
             <ProfileEditSection profile={profile} categories={categories} onSaved={fetchProfile} />
           )}
-        </main>
-      </>
+      </Layout>
     );
   }
 
   // ── APPROVED DASHBOARD VIEW ──
   return (
-    <>
-      <Navbar />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <Layout title="My dashboard">
         {/* Header */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -735,7 +727,7 @@ export default function ProviderDashboard() {
           <>
             {/* Stats */}
             {bookings.length > 0 && (
-              <div className="grid grid-cols-4 gap-3 mb-6">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                 {['pending', 'accepted', 'completed', 'cancelled'].map((s) => {
                   const count = bookings.filter((b) => b.status === s).length;
                   const colors = { pending: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300', accepted: 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300', completed: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300', cancelled: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300' };
@@ -783,7 +775,6 @@ export default function ProviderDashboard() {
               )}
           </>
         )}
-      </main>
-    </>
+    </Layout>
   );
 }

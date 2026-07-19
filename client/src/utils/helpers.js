@@ -22,16 +22,20 @@ export function capitalise(str) {
 }
 
 /**
- * Map a booking status to Tailwind badge classes.
- * Uses the app's semantic palette (amber/sky/emerald/rose) so booking badges
- * stay consistent with the dashboard stat tiles and job-status chips.
+ * Compact relative time. Falls back to an absolute date past a week, where
+ * "23 days ago" is harder to read than the date itself.
  */
-export function statusBadgeClass(status) {
-  const map = {
-    pending: 'bg-amber-100 text-amber-700',
-    accepted: 'bg-sky-100 text-sky-700',
-    completed: 'bg-emerald-100 text-emerald-700',
-    cancelled: 'bg-rose-100 text-rose-700',
-  };
-  return map[status] || 'bg-slate-100 text-slate-600';
+export function relativeTime(dateStr) {
+  if (!dateStr) return '';
+  const then = new Date(dateStr);
+  const seconds = Math.floor((Date.now() - then.getTime()) / 1000);
+
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatDate(dateStr);
 }
