@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from app.models.job_listing import JobListing, JobApplication
 from app.models.provider_profile import ProviderProfile
 from app.schemas.job import JobListingCreate, JobListingUpdate, JobApplicationCreate
+from app.services import notification_service
 
 
 def create_job_listing(db: Session, customer_id: int, data: JobListingCreate) -> dict:
@@ -106,6 +107,18 @@ def apply_to_listing(db: Session, listing_id: int, provider_user_id: int, data: 
     db.add(application)
     db.commit()
     db.refresh(application)
+
+    provider_name = application.provider.name if application.provider else 'A provider'
+    notification_service.create_notification(
+        db,
+        user_id=listing.customer_id,
+        type='job_application',
+        title='New application',
+        body=f'{provider_name} applied to "{listing.title}".'
+        + (f' Quoted Rs. {int(data.proposed_rate):,}.' if data.proposed_rate else ''),
+        link='/dashboard/customer',
+    )
+
     return _serialize_application(application)
 
 
@@ -138,6 +151,16 @@ def award_application(db: Session, listing_id: int, application_id: int, custome
     application.status = 'accepted'
     listing.status = 'awarded'
     listing.awarded_provider_id = application.provider_id
+
+    notification_service.create_notification(
+        db,
+        user_id=application.provider_id,
+        type='job_awarded',
+        title='You won a job',
+        body=f'You were awarded "{listing.title}" in {listing.city}. Contact the customer to arrange it.',
+        link='/jobs',
+        commit=False,
+    )
 
     db.commit()
     db.refresh(listing)

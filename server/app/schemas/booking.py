@@ -1,5 +1,5 @@
 from pydantic import BaseModel, field_validator
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 from enum import Enum
 
@@ -60,5 +60,15 @@ class BookingResponse(BaseModel):
     booking_type: Optional[str] = 'scheduled'
     notes: Optional[str]
     cancellation_reason: Optional[str]
+    cancelled_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    # Denormalised for display, populated by booking_service._enrich().
+    provider_name: Optional[str] = None
+    customer_name: Optional[str] = None
+    category_name: Optional[str] = None
+
+    # Drives the "Leave a review" button.
+    has_review: bool = False
 
     model_config = {'from_attributes': True}

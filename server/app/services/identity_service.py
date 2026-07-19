@@ -4,6 +4,7 @@ from datetime import datetime
 from app.models.user_identity import UserIdentity
 from app.models.provider_profile import ProviderProfile
 from app.schemas.identity import IdentitySubmit, IdentityAdminReview
+from app.services import notification_service
 
 
 def get_or_create_identity(db: Session, user_id: int) -> UserIdentity:
@@ -76,6 +77,26 @@ def admin_review_identity(db: Session, user_id: int, data: IdentityAdminReview, 
     db.refresh(identity)
 
     _recompute_trust_score(db, user_id)
+
+    if data.verification_status == 'verified':
+        notification_service.create_notification(
+            db,
+            user_id=user_id,
+            type='identity_verified',
+            title='Identity verified',
+            body='Your ID has been verified. Customers can now see your verified badge.',
+            link='/dashboard/provider',
+        )
+    elif data.verification_status == 'rejected':
+        notification_service.create_notification(
+            db,
+            user_id=user_id,
+            type='identity_rejected',
+            title='Identity verification needs attention',
+            body=data.rejection_reason or 'Please re-submit your identity documents.',
+            link='/dashboard/provider',
+        )
+
     return identity
 
 

@@ -4,6 +4,7 @@ from app.models.review import Review
 from app.models.booking import Booking
 from app.models.provider_profile import ProviderProfile
 from app.schemas.review import ReviewCreate
+from app.services import notification_service
 
 
 def create_review(db: Session, customer_id: int, data: ReviewCreate) -> Review:
@@ -32,6 +33,18 @@ def create_review(db: Session, customer_id: int, data: ReviewCreate) -> Review:
 
     # Recalculate denormalized average_rating and review_count on provider_profiles.
     _update_provider_rating(db, booking.provider_id)
+
+    customer_name = booking.customer.name if booking.customer else 'A customer'
+    notification_service.create_notification(
+        db,
+        user_id=booking.provider_id,
+        type='review_received',
+        title=f'New {data.rating}-star review',
+        body=f'{customer_name} reviewed your work.'
+        + (f' “{data.comment[:120]}”' if data.comment else ''),
+        link='/dashboard/provider',
+    )
+
     return review
 
 
