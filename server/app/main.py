@@ -9,9 +9,13 @@ import os
 
 app = FastAPI(title='Sajilo Sewa API', version='1.0.0')
 
+# CLIENT_URL may be a single origin or a comma-separated list (e.g. prod + local dev).
+_client_urls = [u.strip() for u in os.getenv('CLIENT_URL', 'http://localhost:5173').split(',') if u.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv('CLIENT_URL', 'http://localhost:5173')],
+    allow_origins=_client_urls,
+    allow_origin_regex=r'https://.*\.vercel\.app',  # Vercel preview deployments
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],
