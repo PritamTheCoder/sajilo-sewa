@@ -35,7 +35,7 @@ app.include_router(notifications.router, prefix='/api/notifications', tags=['not
 
 @app.get('/')
 def health():
-    return {'status': 'ok', 'version': '1.0.0'}
+    return {'name': 'Sajilo Sewa API', 'status': 'ok', 'version': '1.0.0', 'docs': '/docs'}
 
 
 @app.get('/api/statistics')
