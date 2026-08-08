@@ -10,8 +10,9 @@ class Notification(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
     # booking_created | booking_accepted | booking_completed | booking_cancelled |
-    # review_received | identity_verified | identity_rejected | provider_approved |
-    # job_application | job_awarded
+    # review_received | review_reply | identity_verified | identity_rejected |
+    # provider_approved | provider_rejected | witness_vouched | witness_declined |
+    # job_application | job_awarded | dispute_opened | dispute_resolved
     type = Column(String(30), nullable=False)
     title = Column(String(150), nullable=False)
     body = Column(Text)

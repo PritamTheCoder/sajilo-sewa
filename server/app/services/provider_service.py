@@ -1,11 +1,12 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import any_
+from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException
 from typing import Optional
+from decimal import Decimal
 from app.models.provider_profile import ProviderProfile
 from app.models.service_category import ServiceCategory
 from app.models.user import User
 from app.schemas.provider import ProviderApply, ProviderUpdate
+from app.services import notification_service, audit_service
 
 
 def apply_as_provider(db: Session, user_id: int, data: ProviderApply) -> ProviderProfile:
@@ -28,8 +29,41 @@ def apply_as_provider(db: Session, user_id: int, data: ProviderApply) -> Provide
     return profile
 
 
-def get_approved_providers(db: Session, city: Optional[str], category_id: Optional[int]) -> list:
-    query = db.query(ProviderProfile).filter(ProviderProfile.is_approved == True)
+# Every branch ends on id so paging can't repeat or skip a row on ties.
+SORT_ORDERS = {
+    'recommended': lambda: [
+        ProviderProfile.trust_score.desc(),
+        ProviderProfile.average_rating.desc().nullslast(),
+        ProviderProfile.review_count.desc(),
+        ProviderProfile.id.desc(),
+    ],
+    'rating': lambda: [
+        ProviderProfile.average_rating.desc().nullslast(),
+        ProviderProfile.review_count.desc(),
+        ProviderProfile.id.desc(),
+    ],
+    'price_asc': lambda: [ProviderProfile.hourly_rate.asc().nullslast(), ProviderProfile.id.desc()],
+    'price_desc': lambda: [ProviderProfile.hourly_rate.desc().nullslast(), ProviderProfile.id.desc()],
+    'newest': lambda: [ProviderProfile.created_at.desc(), ProviderProfile.id.desc()],
+}
+
+
+def get_approved_providers(
+    db: Session,
+    city: Optional[str] = None,
+    category_id: Optional[int] = None,
+    min_price: Optional[Decimal] = None,
+    max_price: Optional[Decimal] = None,
+    min_rating: Optional[float] = None,
+    sort: str = 'recommended',
+    page: int = 1,
+    page_size: int = 12,
+) -> dict:
+    query = (
+        db.query(ProviderProfile)
+        .join(User, ProviderProfile.user_id == User.id)
+        .filter(ProviderProfile.is_approved == True, User.status == 'active')
+    )
 
     if city:
         query = query.filter(ProviderProfile.city.ilike(f'%{city}%'))
@@ -42,12 +76,33 @@ def get_approved_providers(db: Session, city: Optional[str], category_id: Option
                 ProviderProfile.services.any(category.name)
             )
 
-    return query.all()
+    # An unpriced profile is an unknown price, not a match at any price.
+    if min_price is not None:
+        query = query.filter(ProviderProfile.hourly_rate.isnot(None), ProviderProfile.hourly_rate >= min_price)
+    if max_price is not None:
+        query = query.filter(ProviderProfile.hourly_rate.isnot(None), ProviderProfile.hourly_rate <= max_price)
+    if min_rating is not None:
+        query = query.filter(ProviderProfile.average_rating >= min_rating)
+
+    # Count before the joinedload, which would otherwise inflate the row count.
+    total = query.count()
+
+    order_by = SORT_ORDERS.get(sort, SORT_ORDERS['recommended'])()
+    items = (
+        query.options(joinedload(ProviderProfile.user))
+        .order_by(*order_by)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return {'items': items, 'total': total, 'page': page, 'page_size': page_size}
 
 
 def get_provider_by_id(db: Session, provider_id: int) -> ProviderProfile:
     profile = db.query(ProviderProfile).filter(ProviderProfile.id == provider_id).first()
     if not profile:
+        raise HTTPException(status_code=404, detail='Provider not found')
+    if not profile.user or profile.user.status != 'active':
         raise HTTPException(status_code=404, detail='Provider not found')
     return profile
 
@@ -60,6 +115,83 @@ def update_provider_profile(db: Session, user_id: int, data: ProviderUpdate) -> 
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(profile, field, value)
+
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
+def require_approved_provider(db: Session, user_id: int) -> ProviderProfile:
+    """Gate actions only an admin-approved provider may take.
+
+    require_role('provider') only proves the user registered as one — it says
+    nothing about whether an admin ever approved them, or has since revoked it.
+    """
+    profile = db.query(ProviderProfile).filter(ProviderProfile.user_id == user_id).first()
+    if not profile:
+        raise HTTPException(
+            status_code=403,
+            detail='Complete your provider application before you can do this.',
+        )
+    if not profile.is_approved:
+        if profile.application_status == 'rejected':
+            raise HTTPException(
+                status_code=403,
+                detail=profile.rejection_reason
+                or 'Your provider application was not approved, so you cannot take this action.',
+            )
+        raise HTTPException(
+            status_code=403,
+            detail='Your provider account is still awaiting admin approval.',
+        )
+    return profile
+
+
+def set_approval(
+    db: Session,
+    provider_id: int,
+    is_approved: bool,
+    rejection_reason: Optional[str],
+    admin_id: int,
+) -> ProviderProfile:
+    profile = db.query(ProviderProfile).filter(ProviderProfile.id == provider_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail='Provider profile not found')
+
+    profile.is_approved = is_approved
+    profile.application_status = 'approved' if is_approved else 'rejected'
+    profile.rejection_reason = None if is_approved else rejection_reason
+
+    if is_approved:
+        notification_service.create_notification(
+            db,
+            user_id=profile.user_id,
+            type='provider_approved',
+            title='Your application was approved',
+            body='You can now receive bookings and apply to job listings.',
+            link='/dashboard/provider',
+            commit=False,
+        )
+    else:
+        notification_service.create_notification(
+            db,
+            user_id=profile.user_id,
+            type='provider_rejected',
+            title='Your application was not approved',
+            body=rejection_reason or 'Please review your profile details and get in touch if you think this is a mistake.',
+            link='/dashboard/provider',
+            commit=False,
+        )
+
+    audit_service.log(
+        db,
+        admin_id=admin_id,
+        action='provider_approved' if is_approved else 'provider_rejected',
+        target_type='provider_profile',
+        target_id=profile.id,
+        reason=rejection_reason,
+        commit=False,
+    )
 
     db.commit()
     db.refresh(profile)

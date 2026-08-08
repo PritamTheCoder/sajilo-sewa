@@ -4,7 +4,7 @@ from datetime import datetime
 from app.models.user_identity import UserIdentity
 from app.models.provider_profile import ProviderProfile
 from app.schemas.identity import IdentitySubmit, IdentityAdminReview
-from app.services import notification_service
+from app.services import notification_service, audit_service
 
 
 def get_or_create_identity(db: Session, user_id: int) -> UserIdentity:
@@ -72,6 +72,17 @@ def admin_review_identity(db: Session, user_id: int, data: IdentityAdminReview, 
         identity.citizenship_verified = data.citizenship_verified
     if data.rejection_reason:
         identity.rejection_reason = data.rejection_reason
+
+    if data.verification_status in ('verified', 'rejected'):
+        audit_service.log(
+            db,
+            admin_id=reviewer_id,
+            action='identity_verified' if data.verification_status == 'verified' else 'identity_rejected',
+            target_type='user_identity',
+            target_id=identity.id,
+            reason=data.rejection_reason,
+            commit=False,
+        )
 
     db.commit()
     db.refresh(identity)

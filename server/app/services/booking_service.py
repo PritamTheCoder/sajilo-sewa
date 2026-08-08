@@ -34,16 +34,18 @@ def _enrich(booking: Booking) -> Booking:
     booking.customer_name = booking.customer.name if booking.customer else None
     booking.category_name = booking.category.name if booking.category else None
     booking.has_review = booking.review is not None
+    booking.has_dispute = bool(booking.disputes)
     return booking
 
 
 def _base_query(db: Session):
-    # Eager-load everything _enrich touches, or N bookings fire 4N queries.
+    # Eager-load everything _enrich touches, or N bookings fire 5N queries.
     return db.query(Booking).options(
         joinedload(Booking.provider),
         joinedload(Booking.customer),
         joinedload(Booking.category),
         joinedload(Booking.review),
+        joinedload(Booking.disputes),
     )
 
 

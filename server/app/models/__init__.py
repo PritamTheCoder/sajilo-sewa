@@ -8,5 +8,7 @@ from app.models.user_identity import UserIdentity
 from app.models.provider_witness import ProviderWitness
 from app.models.job_listing import JobListing, JobApplication
 from app.models.notification import Notification
+from app.models.audit_log import AdminAuditLog
+from app.models.dispute import Dispute
 
-__all__ = ['User', 'ProviderProfile', 'ServiceCategory', 'Booking', 'Review', 'UserIdentity', 'ProviderWitness', 'JobListing', 'JobApplication', 'Notification']
+__all__ = ['User', 'ProviderProfile', 'ServiceCategory', 'Booking', 'Review', 'UserIdentity', 'ProviderWitness', 'JobListing', 'JobApplication', 'Notification', 'AdminAuditLog', 'Dispute']

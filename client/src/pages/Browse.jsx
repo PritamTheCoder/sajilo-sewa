@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getProviders } from '../api/providers';
 import { getCategories } from '../api/categories';
@@ -11,8 +11,27 @@ const NEPAL_CITIES = ['Kathmandu', 'Lalitpur', 'Bhaktapur', 'Pokhara', 'Biratnag
 
 const GRID = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4';
 
+const SORTS = [
+  { value: 'recommended', label: 'Recommended' },
+  { value: 'rating', label: 'Highest rated' },
+  { value: 'price_asc', label: 'Price: low to high' },
+  { value: 'price_desc', label: 'Price: high to low' },
+  { value: 'newest', label: 'Newest' },
+];
+
+const RATINGS = [
+  { value: '', label: 'Any rating' },
+  { value: '3', label: '3★ & up' },
+  { value: '4', label: '4★ & up' },
+  { value: '4.5', label: '4.5★ & up' },
+];
+
+// Filters that reset paging when they change.
+const FILTER_KEYS = ['city', 'category_id', 'min_price', 'max_price', 'min_rating', 'sort'];
+
 export default function Browse() {
   const [providers, setProviders] = useState([]);
+  const [total, setTotal] = useState(0);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -21,15 +40,33 @@ export default function Browse() {
 
   const selectedCity = searchParams.get('city') || '';
   const selectedCategory = searchParams.get('category_id') || '';
+  const minRating = searchParams.get('min_rating') || '';
+  const sort = searchParams.get('sort') || 'recommended';
+  const minPrice = searchParams.get('min_price') || '';
+  const maxPrice = searchParams.get('max_price') || '';
+  const page = Number(searchParams.get('page')) || 1;
+
+  // Price is free text, so the URL lags the inputs by a debounce.
+  const [priceInputs, setPriceInputs] = useState({ min: minPrice, max: maxPrice });
+  const debounceRef = useRef(null);
+
+  const pageSize = 12;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const fetchProviders = async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = {};
+      const params = { page, page_size: pageSize, sort };
       if (selectedCity) params.city = selectedCity;
       if (selectedCategory) params.category_id = selectedCategory;
-      setProviders(await getProviders(params));
+      if (minPrice) params.min_price = minPrice;
+      if (maxPrice) params.max_price = maxPrice;
+      if (minRating) params.min_rating = minRating;
+
+      const data = await getProviders(params);
+      setProviders(data.items);
+      setTotal(data.total);
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to load providers. Please try again.');
     } finally {
@@ -47,19 +84,33 @@ export default function Browse() {
   useEffect(() => {
     fetchProviders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCity, selectedCategory]);
+  }, [selectedCity, selectedCategory, minPrice, maxPrice, minRating, sort, page]);
 
-  const updateFilter = (key, value) => {
+  const setParam = (key, value) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       if (value) next.set(key, value);
       else next.delete(key);
+      if (FILTER_KEYS.includes(key)) next.delete('page');
       return next;
-    });
+      // replace: typing a price shouldn't push one history entry per keystroke.
+    }, { replace: true });
   };
 
-  const clearFilters = () => setSearchParams({});
-  const hasFilters = selectedCity || selectedCategory;
+  const onPriceChange = (bound, value) => {
+    setPriceInputs((prev) => ({ ...prev, [bound]: value }));
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setParam(bound === 'min' ? 'min_price' : 'max_price', value), 400);
+  };
+
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
+
+  const clearFilters = () => {
+    setPriceInputs({ min: '', max: '' });
+    setSearchParams({});
+  };
+
+  const hasFilters = selectedCity || selectedCategory || minPrice || maxPrice || minRating || sort !== 'recommended';
 
   return (
     <Layout title="Browse">
@@ -68,7 +119,7 @@ export default function Browse() {
         <p className="text-body-sm text-text-muted mt-1" aria-live="polite">
           {loading
             ? 'Finding providers…'
-            : `${providers.length} provider${providers.length !== 1 ? 's' : ''} available`}
+            : `${total} provider${total !== 1 ? 's' : ''} available`}
         </p>
       </header>
 
@@ -81,14 +132,14 @@ export default function Browse() {
         </div>
 
         {/* Full width on mobile so the selects don't wrap into a ragged row. */}
-        <div className="flex flex-col sm:flex-row gap-3 grow sm:grow-0">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 grow sm:grow-0">
           <div>
             <label htmlFor="city-filter" className="sr-only">Filter by city</label>
             <select
               id="city-filter"
               value={selectedCity}
-              onChange={(e) => updateFilter('city', e.target.value)}
-              className="input-field sm:w-auto"
+              onChange={(e) => setParam('city', e.target.value)}
+              className="input-field sm:w-40"
             >
               <option value="">All cities</option>
               {NEPAL_CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -100,14 +151,66 @@ export default function Browse() {
             <select
               id="category-filter"
               value={selectedCategory}
-              onChange={(e) => updateFilter('category_id', e.target.value)}
+              onChange={(e) => setParam('category_id', e.target.value)}
               disabled={categoriesFailed}
-              className="input-field sm:w-auto"
+              className="input-field sm:w-44"
             >
               <option value="">{categoriesFailed ? 'Categories unavailable' : 'All categories'}</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="min-price" className="sr-only">Minimum hourly rate</label>
+            <input
+              id="min-price"
+              type="number"
+              min="0"
+              inputMode="numeric"
+              value={priceInputs.min}
+              onChange={(e) => onPriceChange('min', e.target.value)}
+              placeholder="Min Rs."
+              className="input-field sm:w-28"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="max-price" className="sr-only">Maximum hourly rate</label>
+            <input
+              id="max-price"
+              type="number"
+              min="0"
+              inputMode="numeric"
+              value={priceInputs.max}
+              onChange={(e) => onPriceChange('max', e.target.value)}
+              placeholder="Max Rs."
+              className="input-field sm:w-28"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="rating-filter" className="sr-only">Minimum rating</label>
+            <select
+              id="rating-filter"
+              value={minRating}
+              onChange={(e) => setParam('min_rating', e.target.value)}
+              className="input-field sm:w-36"
+            >
+              {RATINGS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="sort-by" className="sr-only">Sort by</label>
+            <select
+              id="sort-by"
+              value={sort}
+              onChange={(e) => setParam('sort', e.target.value)}
+              className="input-field sm:w-48"
+            >
+              {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
         </div>
@@ -141,9 +244,33 @@ export default function Browse() {
           )}
         </div>
       ) : (
-        <div className={GRID}>
-          {providers.map((p) => <ProviderCard key={p.id} provider={p} />)}
-        </div>
+        <>
+          <div className={GRID}>
+            {providers.map((p) => <ProviderCard key={p.id} provider={p} />)}
+          </div>
+
+          {totalPages > 1 && (
+            <nav className="flex items-center justify-between gap-3 mt-8" aria-label="Pagination">
+              <button
+                onClick={() => setParam('page', String(page - 1))}
+                disabled={page <= 1}
+                className="btn-secondary btn-sm"
+              >
+                Previous
+              </button>
+              <span className="text-body-sm text-text-muted tabular" aria-live="polite">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setParam('page', String(page + 1))}
+                disabled={page >= totalPages}
+                className="btn-secondary btn-sm"
+              >
+                Next
+              </button>
+            </nav>
+          )}
+        </>
       )}
     </Layout>
   );

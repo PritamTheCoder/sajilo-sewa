@@ -1,14 +1,177 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProviderById } from '../api/providers';
-import { getProviderReviews } from '../api/reviews';
+import { getProviderReviews, updateReview, deleteReview, replyToReview } from '../api/reviews';
 import { useAuth } from '../context/AuthContext';
-import StarRating from '../components/StarRating';
+import { useToast } from '../context/ToastContext';
+import StarRating, { StarRatingInput } from '../components/StarRating';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
+import { ConfirmDialog } from '../components/Dialog';
 import Layout from '../components/Layout';
 import { formatDate } from '../utils/helpers';
 import { avatarColor, avatarInitial, identityStatus, StatusBadge } from '../utils/appearance';
+
+const EDIT_WINDOW_DAYS = 7;
+
+function ReviewItem({ review, currentUser, onChanged, onDeleted }) {
+  const { addToast } = useToast();
+  const [editing, setEditing] = useState(false);
+  const [replying, setReplying] = useState(false);
+  const [rating, setRating] = useState(review.rating);
+  const [comment, setComment] = useState(review.comment || '');
+  const [reply, setReply] = useState(review.provider_reply || '');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const isAuthor = currentUser?.id === review.customer_id;
+  const isProvider = currentUser?.id === review.provider_id;
+  const isAdmin = currentUser?.role === 'admin';
+
+  const withinWindow =
+    (Date.now() - new Date(review.created_at).getTime()) / 86400000 <= EDIT_WINDOW_DAYS;
+  const canEdit = isAuthor && withinWindow && !review.provider_reply;
+
+  const handleSave = async () => {
+    setBusy(true);
+    try {
+      onChanged(await updateReview(review.id, { rating, comment }));
+      addToast('Review updated.', 'success');
+      setEditing(false);
+    } catch (err) {
+      addToast(err?.response?.data?.detail || 'Could not update this review.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setBusy(true);
+    try {
+      await deleteReview(review.id);
+      addToast('Review deleted.', 'success');
+      onDeleted(review.id);
+    } catch (err) {
+      addToast(err?.response?.data?.detail || 'Could not delete this review.', 'error');
+      setBusy(false);
+      setConfirmDelete(false);
+    }
+  };
+
+  const handleReply = async () => {
+    setBusy(true);
+    try {
+      onChanged(await replyToReview(review.id, reply));
+      addToast('Reply posted.', 'success');
+      setReplying(false);
+    } catch (err) {
+      addToast(err?.response?.data?.detail || 'Could not post your reply.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <article className="card p-5 animate-fade-in">
+      <div className="flex items-start justify-between gap-2">
+        {editing ? (
+          <StarRatingInput value={rating} onChange={setRating} />
+        ) : (
+          <div className="min-w-0">
+            <StarRating rating={review.rating} size="sm" />
+            {review.customer_name && (
+              <p className="text-caption text-text-subtle mt-1 truncate">{review.customer_name}</p>
+            )}
+          </div>
+        )}
+        <time dateTime={review.created_at} className="text-caption text-text-subtle shrink-0">
+          {formatDate(review.created_at)}
+          {review.edited_at && ' · edited'}
+        </time>
+      </div>
+
+      {editing ? (
+        <div className="mt-3 space-y-3">
+          <label htmlFor={`edit-${review.id}`} className="sr-only">Review comment</label>
+          <textarea
+            id={`edit-${review.id}`}
+            rows={3}
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            className="input-field h-auto py-2.5 resize-none"
+          />
+          <div className="flex gap-2">
+            <button onClick={handleSave} disabled={busy} className="btn-primary btn-sm">
+              {busy ? 'Saving…' : 'Save changes'}
+            </button>
+            <button onClick={() => setEditing(false)} disabled={busy} className="btn-ghost btn-sm">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        review.comment && <p className="mt-2 text-body-sm text-text-muted">{review.comment}</p>
+      )}
+
+      {review.provider_reply && !replying && (
+        <div className="mt-3 pl-3 border-l-2 border-brand-subtle">
+          <p className="text-caption font-semibold text-text">Response from the provider</p>
+          <p className="text-body-sm text-text-muted mt-1">{review.provider_reply}</p>
+        </div>
+      )}
+
+      {replying && (
+        <div className="mt-3 space-y-3">
+          <label htmlFor={`reply-${review.id}`} className="sr-only">Your reply</label>
+          <textarea
+            id={`reply-${review.id}`}
+            rows={3}
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            placeholder="Thanks for the feedback…"
+            className="input-field h-auto py-2.5 resize-none"
+          />
+          <div className="flex gap-2">
+            <button onClick={handleReply} disabled={busy || !reply.trim()} className="btn-primary btn-sm">
+              {busy ? 'Posting…' : 'Post reply'}
+            </button>
+            <button onClick={() => setReplying(false)} disabled={busy} className="btn-ghost btn-sm">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!editing && !replying && (canEdit || isAuthor || isAdmin || isProvider) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {canEdit && (
+            <button onClick={() => setEditing(true)} className="btn-ghost btn-sm">Edit</button>
+          )}
+          {(isAuthor || isAdmin) && (
+            <button onClick={() => setConfirmDelete(true)} className="btn-ghost btn-sm text-danger">
+              Delete
+            </button>
+          )}
+          {isProvider && (
+            <button onClick={() => setReplying(true)} className="btn-ghost btn-sm">
+              {review.provider_reply ? 'Edit reply' : 'Reply'}
+            </button>
+          )}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
+        loading={busy}
+        title="Delete this review?"
+        description="This cannot be undone. The provider's rating will be recalculated."
+        confirmLabel="Delete"
+      />
+    </article>
+  );
+}
 
 export default function ProviderProfile() {
   const { id } = useParams();
@@ -191,20 +354,15 @@ export default function ProviderProfile() {
         ) : (
           <div className="space-y-3">
             {reviews.map((review) => (
-              <article key={review.id} className="card p-5 animate-fade-in">
-                <div className="flex items-start justify-between gap-2">
-                  <StarRating rating={review.rating} size="sm" />
-                  <time
-                    dateTime={review.created_at}
-                    className="text-caption text-text-subtle shrink-0"
-                  >
-                    {formatDate(review.created_at)}
-                  </time>
-                </div>
-                {review.comment && (
-                  <p className="mt-2 text-body-sm text-text-muted">{review.comment}</p>
-                )}
-              </article>
+              <ReviewItem
+                key={review.id}
+                review={review}
+                currentUser={user}
+                onChanged={(updated) =>
+                  setReviews((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
+                }
+                onDeleted={(id) => setReviews((prev) => prev.filter((r) => r.id !== id))}
+              />
             ))}
           </div>
         )}

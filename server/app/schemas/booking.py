@@ -70,5 +70,7 @@ class BookingResponse(BaseModel):
 
     # Drives the "Leave a review" button.
     has_review: bool = False
+    # Drives the "Report a problem" button.
+    has_dispute: bool = False
 
     model_config = {'from_attributes': True}

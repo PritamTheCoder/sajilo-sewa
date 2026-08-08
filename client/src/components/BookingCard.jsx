@@ -43,7 +43,7 @@ const InfoIcon = (
 
 // Bookings are immutable once created: the API exposes status transitions
 // only, no content edits. Each state spells out what recourse remains.
-export default function BookingCard({ booking, onStatusChange, onCancel, role }) {
+export default function BookingCard({ booking, onStatusChange, onCancel, onReport, role }) {
   const {
     id,
     status,
@@ -56,6 +56,7 @@ export default function BookingCard({ booking, onStatusChange, onCancel, role })
     customer_name,
     category_name,
     cancelled_by,
+    has_dispute,
   } = booking;
 
   const appearance = bookingStatus(status);
@@ -68,9 +69,11 @@ export default function BookingCard({ booking, onStatusChange, onCancel, role })
   const canDecline = role === 'provider' && status === 'pending';
   const canProviderCancel = role === 'provider' && status === 'accepted';
   const canCustomerCancel = role === 'customer' && status === 'pending';
+  // A finished booking has an outcome to dispute; earlier states are still cancellable instead.
+  const canReport = Boolean(onReport) && ['completed', 'cancelled'].includes(status) && !has_dispute;
 
   const hasActions =
-    canAccept || canComplete || canDecline || canProviderCancel || canCustomerCancel;
+    canAccept || canComplete || canDecline || canProviderCancel || canCustomerCancel || canReport;
 
   // 'cancelled' covers both parties, so name who acted.
   const cancelledNarrative = () => {
@@ -191,7 +194,18 @@ export default function BookingCard({ booking, onStatusChange, onCancel, role })
               Cancel booking
             </button>
           )}
+          {canReport && (
+            <button onClick={() => onReport(booking)} className="btn-ghost btn-sm">
+              Report a problem
+            </button>
+          )}
         </div>
+      )}
+
+      {has_dispute && (
+        <p className="mt-3 text-caption text-text-subtle">
+          You reported a problem with this booking. An admin is reviewing it.
+        </p>
       )}
     </article>
   );

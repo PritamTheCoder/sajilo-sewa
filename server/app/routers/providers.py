@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List
+from decimal import Decimal
 from app.database import get_db
 from app.models.user import User
 from app.schemas.provider import ProviderApply, ProviderUpdate, ProviderProfileResponse
+from app.schemas.common import Page
 from app.dependencies.auth import get_current_user, require_role
 from app.utils.cloudinary_upload import upload_profile_photo
 from app.services import provider_service
@@ -11,13 +13,21 @@ from app.services import provider_service
 router = APIRouter()
 
 
-@router.get('', response_model=List[ProviderProfileResponse])
+@router.get('', response_model=Page[ProviderProfileResponse])
 def list_providers(
     city: Optional[str] = Query(None),
     category_id: Optional[int] = Query(None),
+    min_price: Optional[Decimal] = Query(None, ge=0),
+    max_price: Optional[Decimal] = Query(None, ge=0),
+    min_rating: Optional[float] = Query(None, ge=0, le=5),
+    sort: str = Query('recommended'),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(12, ge=1, le=48),
     db: Session = Depends(get_db),
 ):
-    return provider_service.get_approved_providers(db, city, category_id)
+    return provider_service.get_approved_providers(
+        db, city, category_id, min_price, max_price, min_rating, sort, page, page_size
+    )
 
 
 @router.get('/me', response_model=ProviderProfileResponse)

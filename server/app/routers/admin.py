@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from app.database import get_db
 from app.models.provider_profile import ProviderProfile
@@ -8,8 +8,11 @@ from app.models.user_identity import UserIdentity
 from app.models.provider_witness import ProviderWitness
 from app.schemas.provider import ProviderProfileResponse
 from app.schemas.identity import IdentityAdminReview, IdentityResponse
+from app.schemas.user import UserResponse
+from app.schemas.audit import AuditLogResponse, UserStatusUpdate
+from app.schemas.common import Page
 from app.dependencies.auth import require_role
-from app.services import identity_service, provider_service, notification_service
+from app.services import identity_service, provider_service, admin_service, audit_service
 from pydantic import BaseModel
 from typing import Optional
 
@@ -19,33 +22,6 @@ router = APIRouter()
 class ApprovalUpdate(BaseModel):
     is_approved: bool
     rejection_reason: Optional[str] = None
-
-
-class ProviderAdminView(BaseModel):
-    """Enriched provider view for admin — includes identity and witness summary."""
-    id: int
-    user_id: int
-    bio: Optional[str]
-    services: Optional[List[str]]
-    city: Optional[str]
-    area: Optional[str]
-    hourly_rate: Optional[float]
-    profile_photo: Optional[str]
-    is_approved: bool
-    average_rating: Optional[float]
-    review_count: int
-    trust_score: int
-    witnesses_confirmed: int
-    application_status: str
-    created_at: str
-    user_name: Optional[str]
-    user_email: Optional[str]
-    user_phone: Optional[str]
-    identity_status: Optional[str]
-    identity_type: Optional[str]
-    witnesses_summary: List[dict]
-
-    model_config = {'from_attributes': False}
 
 
 @router.get('/analytics')
@@ -63,11 +39,21 @@ def list_applications(
     _: User = Depends(require_role('admin')),
 ):
     """List all provider profiles with identity and witness data for admin review."""
-    profiles = db.query(ProviderProfile).order_by(ProviderProfile.created_at.desc()).all()
+    profiles = (
+        db.query(ProviderProfile)
+        .options(joinedload(ProviderProfile.user), joinedload(ProviderProfile.witnesses))
+        .order_by(ProviderProfile.created_at.desc())
+        .all()
+    )
+    identities = {
+        i.user_id: i
+        for i in db.query(UserIdentity).filter(UserIdentity.user_id.in_([p.user_id for p in profiles])).all()
+    } if profiles else {}
+
     result = []
     for p in profiles:
-        identity = db.query(UserIdentity).filter(UserIdentity.user_id == p.user_id).first()
-        witnesses = db.query(ProviderWitness).filter(ProviderWitness.provider_profile_id == p.id).all()
+        identity = identities.get(p.user_id)
+        witnesses = p.witnesses
 
         result.append({
             'id': p.id,
@@ -84,8 +70,10 @@ def list_applications(
             'trust_score': p.trust_score,
             'witnesses_confirmed': p.witnesses_confirmed,
             'application_status': p.application_status,
+            'rejection_reason': p.rejection_reason,
             'created_at': p.created_at.isoformat() if p.created_at else None,
             'user_name': p.user.name if p.user else None,
+            'user_status': p.user.status if p.user else None,
             'user_email': p.user.email if p.user else None,
             'user_phone': p.user.phone if p.user else None,
             'identity_status': identity.verification_status if identity else 'not_submitted',
@@ -116,39 +104,11 @@ def approve_or_reject(
     provider_id: int,
     data: ApprovalUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_role('admin')),
+    current_user: User = Depends(require_role('admin')),
 ):
-    profile = db.query(ProviderProfile).filter(ProviderProfile.id == provider_id).first()
-    if not profile:
-        raise HTTPException(status_code=404, detail='Provider profile not found')
-
-    profile.is_approved = data.is_approved
-    profile.application_status = 'approved' if data.is_approved else 'rejected'
-
-    if data.is_approved:
-        notification_service.create_notification(
-            db,
-            user_id=profile.user_id,
-            type='provider_approved',
-            title='Your application was approved',
-            body='You can now receive bookings and apply to job listings.',
-            link='/dashboard/provider',
-            commit=False,
-        )
-    else:
-        notification_service.create_notification(
-            db,
-            user_id=profile.user_id,
-            type='provider_rejected',
-            title='Your application was not approved',
-            body='Please review your profile details and get in touch if you think this is a mistake.',
-            link='/dashboard/provider',
-            commit=False,
-        )
-
-    db.commit()
-    db.refresh(profile)
-    return profile
+    return provider_service.set_approval(
+        db, provider_id, data.is_approved, data.rejection_reason, current_user.id
+    )
 
 
 @router.get('/identities/pending', response_model=List[IdentityResponse])
@@ -167,3 +127,38 @@ def review_identity(
     current_user: User = Depends(require_role('admin')),
 ):
     return identity_service.admin_review_identity(db, user_id, data, current_user.id)
+
+
+@router.get('/users', response_model=Page[UserResponse])
+def list_users(
+    q: Optional[str] = Query(None),
+    role: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_role('admin')),
+):
+    return admin_service.list_users(db, q, role, status, page, page_size)
+
+
+@router.put('/users/{user_id}/status', response_model=UserResponse)
+def set_user_status(
+    user_id: int,
+    data: UserStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role('admin')),
+):
+    return admin_service.set_user_status(db, user_id, data.status, data.reason, current_user)
+
+
+@router.get('/audit', response_model=Page[AuditLogResponse])
+def list_audit_log(
+    action: Optional[str] = Query(None),
+    target_type: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_role('admin')),
+):
+    return audit_service.get_logs(db, action, target_type, page, page_size)

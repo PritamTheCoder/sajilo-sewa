@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from app.models.job_listing import JobListing, JobApplication
 from app.models.provider_profile import ProviderProfile
 from app.schemas.job import JobListingCreate, JobListingUpdate, JobApplicationCreate
-from app.services import notification_service
+from app.services import notification_service, provider_service
 
 
 def create_job_listing(db: Session, customer_id: int, data: JobListingCreate) -> dict:
@@ -83,6 +83,9 @@ def close_listing(db: Session, listing_id: int, customer_id: int) -> dict:
 
 
 def apply_to_listing(db: Session, listing_id: int, provider_user_id: int, data: JobApplicationCreate) -> dict:
+    # Browsing listings is open to any provider; applying is not.
+    provider_service.require_approved_provider(db, provider_user_id)
+
     listing = db.query(JobListing).filter(JobListing.id == listing_id).first()
     if not listing:
         raise HTTPException(status_code=404, detail='Job listing not found')
@@ -142,6 +145,16 @@ def award_application(db: Session, listing_id: int, application_id: int, custome
     ).first()
     if not application:
         raise HTTPException(status_code=404, detail='Application not found')
+
+    # Approval can be revoked between applying and being awarded.
+    applicant_profile = db.query(ProviderProfile).filter(
+        ProviderProfile.user_id == application.provider_id
+    ).first()
+    if not applicant_profile or not applicant_profile.is_approved:
+        raise HTTPException(
+            status_code=400,
+            detail='This provider is no longer approved and cannot be awarded the job.',
+        )
 
     # Accept this one, reject all others
     all_apps = db.query(JobApplication).filter(JobApplication.job_listing_id == listing_id).all()
