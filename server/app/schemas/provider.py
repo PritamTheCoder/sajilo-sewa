@@ -52,6 +52,7 @@ class ProviderProfileResponse(BaseModel):
     witnesses_confirmed: int = 0
     application_status: str = 'draft'
     emergency_available: bool = False
+    rejection_reason: Optional[str] = None
     created_at: datetime
     user_name: Optional[str] = None
 

@@ -7,6 +7,7 @@ import { getMyListings, closeJobListing, awardJob } from '../api/jobs';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import BookingCard from '../components/BookingCard';
+import ReportDialog from '../components/ReportDialog';
 import ErrorMessage, { InlineError } from '../components/ErrorMessage';
 import Layout, { SidebarNav } from '../components/Layout';
 import Dialog, { ConfirmDialog } from '../components/Dialog';
@@ -236,6 +237,7 @@ export default function CustomerDashboard() {
   const [expandedJob, setExpandedJob] = useState(null);
 
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [reportTarget, setReportTarget] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [closeTarget, setCloseTarget] = useState(null);
   const [awardTarget, setAwardTarget] = useState(null);
@@ -452,6 +454,7 @@ export default function CustomerDashboard() {
                         setCancelReason('');
                         setCancelTarget(b);
                       }}
+                      onReport={setReportTarget}
                     />
                     {booking.status === 'completed' && !reviewed && (
                       <div className="mt-2 pl-1">
@@ -479,6 +482,16 @@ export default function CustomerDashboard() {
         onClose={() => setReviewTarget(null)}
         onSubmitted={(id) => setJustReviewed((prev) => new Set([...prev, id]))}
       />
+
+      {reportTarget && (
+        <ReportDialog
+          booking={reportTarget}
+          onClose={() => setReportTarget(null)}
+          onReported={(id) =>
+            setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, has_dispute: true } : b)))
+          }
+        />
+      )}
 
       <ConfirmDialog
         open={Boolean(cancelTarget)}

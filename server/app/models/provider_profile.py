@@ -28,6 +28,7 @@ class ProviderProfile(Base):
     witnesses_confirmed = Column(Integer, default=0)
     application_status = Column(String(30), default='draft', nullable=False)
     emergency_available = Column(Boolean, default=False)
+    rejection_reason = Column(String(300), nullable=True)
 
     user = relationship('User', back_populates='provider_profile')
     witnesses = relationship('ProviderWitness', back_populates='provider_profile', cascade='all, delete-orphan')

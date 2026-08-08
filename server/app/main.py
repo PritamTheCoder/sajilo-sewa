@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from app.routers import auth, providers, categories, bookings, reviews, admin, identity, witness, jobs, notifications
+from app.routers import auth, providers, categories, bookings, reviews, admin, identity, witness, jobs, notifications, disputes
 from app.services.provider_service import get_platform_stats
 from app.database import get_db
 import os
@@ -31,6 +31,7 @@ app.include_router(identity.router, prefix='/api/identity', tags=['identity'])
 app.include_router(witness.router, prefix='/api/witnesses', tags=['witnesses'])
 app.include_router(jobs.router, prefix='/api/jobs', tags=['jobs'])
 app.include_router(notifications.router, prefix='/api/notifications', tags=['notifications'])
+app.include_router(disputes.router, prefix='/api/disputes', tags=['disputes'])
 
 
 @app.get('/')

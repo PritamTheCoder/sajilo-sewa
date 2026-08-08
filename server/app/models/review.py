@@ -17,5 +17,13 @@ class Review(Base):
     rating = Column(SmallInteger, nullable=False)
     comment = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+    edited_at = Column(DateTime, nullable=True)
+    provider_reply = Column(Text, nullable=True)
+    provider_reply_at = Column(DateTime, nullable=True)
 
     booking = relationship('Booking', back_populates='review')
+    customer = relationship('User', foreign_keys=[customer_id])
+
+    @property
+    def customer_name(self):
+        return self.customer.name if self.customer else None

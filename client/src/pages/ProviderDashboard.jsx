@@ -8,6 +8,7 @@ import { getCategories } from '../api/categories';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import BookingCard from '../components/BookingCard';
+import ReportDialog from '../components/ReportDialog';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage, { InlineError } from '../components/ErrorMessage';
 import Layout from '../components/Layout';
@@ -469,6 +470,7 @@ export default function ProviderDashboard() {
   const [identity, setIdentity] = useState(null);
   const [witnesses, setWitnesses] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [reportTarget, setReportTarget] = useState(null);
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm();
   const servicePreset = watch('servicePreset');
@@ -768,12 +770,27 @@ export default function ProviderDashboard() {
                 <div className="space-y-3">
                   {filtered.map((booking) => (
                     <div key={booking.id} className={updatingId === booking.id ? 'opacity-60 pointer-events-none' : ''}>
-                      <BookingCard booking={booking} role="provider" onStatusChange={handleStatusChange} />
+                      <BookingCard
+                        booking={booking}
+                        role="provider"
+                        onStatusChange={handleStatusChange}
+                        onReport={setReportTarget}
+                      />
                     </div>
                   ))}
                 </div>
               )}
           </>
+        )}
+
+        {reportTarget && (
+          <ReportDialog
+            booking={reportTarget}
+            onClose={() => setReportTarget(null)}
+            onReported={(id) =>
+              setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, has_dispute: true } : b)))
+            }
+          />
         )}
     </Layout>
   );

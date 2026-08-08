@@ -4,6 +4,7 @@ from datetime import datetime
 from app.models.provider_witness import ProviderWitness
 from app.models.provider_profile import ProviderProfile
 from app.schemas.witness import WitnessInvite, WitnessVouch, WitnessDecline
+from app.services import notification_service
 
 
 def invite_witness(db: Session, provider_user_id: int, data: WitnessInvite) -> ProviderWitness:
@@ -70,6 +71,13 @@ def vouch(db: Session, token: str, user_id: int, data: WitnessVouch) -> Provider
 
     db.commit()
     _update_witness_count(db, witness.provider_profile_id)
+    _notify_provider(
+        db,
+        witness,
+        type='witness_vouched',
+        title='A witness vouched for you',
+        body=f'{witness.witness_name} confirmed they know you. Your trust score has been updated.',
+    )
     db.refresh(witness)
     return witness
 
@@ -79,8 +87,28 @@ def decline(db: Session, token: str, data: WitnessDecline) -> ProviderWitness:
     witness.vouch_status = 'declined'
     witness.declined_reason = data.declined_reason
     db.commit()
+    _notify_provider(
+        db,
+        witness,
+        type='witness_declined',
+        title='A witness declined',
+        body=f'{witness.witness_name} declined your request. You can invite someone else.',
+    )
     db.refresh(witness)
     return witness
+
+
+def _notify_provider(db: Session, witness: ProviderWitness, type: str, title: str, body: str):
+    profile = db.query(ProviderProfile).filter(ProviderProfile.id == witness.provider_profile_id).first()
+    if profile:
+        notification_service.create_notification(
+            db,
+            user_id=profile.user_id,
+            type=type,
+            title=title,
+            body=body,
+            link='/dashboard/provider',
+        )
 
 
 def link_witness_to_user(db: Session, token: str, user_id: int):

@@ -14,3 +14,9 @@ export const uploadUserPhoto = (formData) =>
   api.post('/auth/me/photo', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then((res) => res.data);
+
+export const changePassword = (data) =>
+  api.post('/auth/me/password', data).then((res) => res.data);
+
+export const deactivateAccount = () =>
+  api.post('/auth/me/deactivate').then((res) => res.data);

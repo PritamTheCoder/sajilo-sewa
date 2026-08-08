@@ -22,6 +22,9 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = db.query(User).filter(User.id == int(user_id)).first()
     if not user:
         raise HTTPException(status_code=401, detail='User not found')
+    # Rejecting here retires already-issued tokens without a revocation list.
+    if user.status != 'active':
+        raise HTTPException(status_code=401, detail='Account is not active')
     return user
 
 

@@ -28,3 +28,4 @@ class Booking(Base):
     provider = relationship('User', foreign_keys=[provider_id], back_populates='bookings_as_provider')
     category = relationship('ServiceCategory', back_populates='bookings')
     review = relationship('Review', back_populates='booking', uselist=False)
+    disputes = relationship('Dispute', back_populates='booking')

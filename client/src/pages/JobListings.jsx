@@ -86,13 +86,28 @@ function JobCard({ job, applied, onApply }) {
       </div>
 
       {user?.role === 'provider' && job.status === 'open' && (
-        <button
-          onClick={() => onApply(job)}
-          disabled={applied}
-          className="btn-primary w-full"
-        >
-          {applied ? 'Application sent' : 'Apply for this job'}
-        </button>
+        user.provider_approved ? (
+          <button
+            onClick={() => onApply(job)}
+            disabled={applied}
+            className="btn-primary w-full"
+          >
+            {applied ? 'Application sent' : 'Apply for this job'}
+          </button>
+        ) : (
+          // Browsing stays open; applying waits on admin approval.
+          <div className="callout-info">
+            <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path fillRule="evenodd" d="M18 10A8 8 0 112 10a8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            <p>
+              Your provider account needs admin approval before you can apply.{' '}
+              <Link to="/dashboard/provider" className="font-medium underline">
+                Check your verification status
+              </Link>
+            </p>
+          </div>
+        )
       )}
       {!user && (
         <Link to={`/login?redirect=/jobs`} className="btn-outline w-full">

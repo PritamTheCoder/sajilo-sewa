@@ -1,12 +1,15 @@
 import { useRef, useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { uploadUserPhoto } from '../api/auth';
+import { uploadUserPhoto, changePassword, deactivateAccount } from '../api/auth';
 import { getMyBookings, getIncomingBookings } from '../api/bookings';
 import { getMyProviderProfile } from '../api/providers';
 import { getMyIdentity } from '../api/identity';
 import Layout from '../components/Layout';
-import { Link } from 'react-router-dom';
+import { InlineError } from '../components/ErrorMessage';
+import { ConfirmDialog } from '../components/Dialog';
+import { Link, useNavigate } from 'react-router-dom';
 
 const ACTIVE_STATUSES = ['pending', 'accepted'];
 
@@ -61,13 +64,107 @@ function InfoRow({ label, value }) {
   );
 }
 
-export default function Profile() {
-  const { user, fetchUser } = useAuth();
+function ChangePasswordCard() {
   const { addToast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState(null);
+  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm();
+
+  const onSubmit = async (data) => {
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await changePassword({
+        current_password: data.current_password,
+        new_password: data.new_password,
+      });
+      addToast('Password updated.', 'success');
+      reset();
+    } catch (err) {
+      setFormError(err?.response?.data?.detail || 'Could not change your password. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="card p-6 mb-6">
+      <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-4">Change Password</h2>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+        {formError && (
+          <div className="callout-danger" role="alert">
+            <svg className="w-5 h-5 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+            </svg>
+            <p>{formError}</p>
+          </div>
+        )}
+
+        <div>
+          <label htmlFor="current_password" className="label">Current password</label>
+          <input
+            id="current_password"
+            type="password"
+            autoComplete="current-password"
+            aria-invalid={errors.current_password ? 'true' : undefined}
+            className="input-field"
+            {...register('current_password', { required: 'Current password is required' })}
+          />
+          <InlineError message={errors.current_password?.message} />
+        </div>
+
+        <div>
+          <label htmlFor="new_password" className="label">New password</label>
+          <input
+            id="new_password"
+            type="password"
+            autoComplete="new-password"
+            aria-invalid={errors.new_password ? 'true' : undefined}
+            className="input-field"
+            {...register('new_password', {
+              required: 'New password is required',
+              minLength: { value: 8, message: 'Password must be at least 8 characters' },
+            })}
+          />
+          <InlineError message={errors.new_password?.message} />
+        </div>
+
+        <div>
+          <label htmlFor="confirm_password" className="label">Confirm new password</label>
+          <input
+            id="confirm_password"
+            type="password"
+            autoComplete="new-password"
+            aria-invalid={errors.confirm_password ? 'true' : undefined}
+            className="input-field"
+            {...register('confirm_password', {
+              required: 'Please confirm your new password',
+              validate: (v) => v === watch('new_password') || 'Passwords do not match',
+            })}
+          />
+          <InlineError message={errors.confirm_password?.message} />
+        </div>
+
+        <span className="hint">You will stay signed in on your other devices.</span>
+
+        <button type="submit" disabled={submitting} className="btn-primary w-full mt-2">
+          {submitting ? 'Updating…' : 'Update password'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+export default function Profile() {
+  const { user, fetchUser, logout } = useAuth();
+  const { addToast } = useToast();
+  const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [activity, setActivity] = useState(null);
   const [providerInfo, setProviderInfo] = useState(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -94,6 +191,25 @@ export default function Profile() {
   if (!user) return null;
 
   const role = ROLE_LABELS[user.role] || ROLE_LABELS.customer;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  const handleDeactivate = async () => {
+    setDeactivating(true);
+    try {
+      await deactivateAccount();
+      addToast('Your account has been deactivated.', 'success');
+      logout();
+      navigate('/');
+    } catch (err) {
+      addToast(err?.response?.data?.detail || 'Could not deactivate your account.', 'error');
+      setDeactivating(false);
+      setConfirmDeactivate(false);
+    }
+  };
 
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -324,6 +440,34 @@ export default function Profile() {
             </div>
           </div>
         )}
+
+        <ChangePasswordCard />
+
+        {/* Sign out — the only entry point on mobile, where the top bar hides it above lg. */}
+        <button onClick={handleLogout} className="btn-outline w-full">
+          Log out
+        </button>
+
+        <div className="card p-6 mt-6 border-red-200 dark:border-red-500/30">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-1">Deactivate Account</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+            You will be signed out and will no longer be able to log in. Your past bookings and
+            reviews stay visible to the people you worked with. Contact support to reactivate.
+          </p>
+          <button onClick={() => setConfirmDeactivate(true)} className="btn-danger w-full">
+            Deactivate my account
+          </button>
+        </div>
+
+        <ConfirmDialog
+          open={confirmDeactivate}
+          onClose={() => setConfirmDeactivate(false)}
+          onConfirm={handleDeactivate}
+          loading={deactivating}
+          title="Deactivate your account?"
+          description="You will be signed out immediately and will not be able to log back in."
+          confirmLabel="Deactivate"
+        />
     </Layout>
   );
 }

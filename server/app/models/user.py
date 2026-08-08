@@ -15,6 +15,9 @@ class User(Base):
     phone = Column(String(20))
     city = Column(String(100))
     profile_photo = Column(String(500), nullable=True)
+    # active | deactivated (self-service) | suspended (admin action)
+    status = Column(String(20), nullable=False, server_default='active', default='active')
+    status_changed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # One-to-one: a user may have one provider profile
@@ -35,3 +38,10 @@ class User(Base):
         foreign_keys='Booking.provider_id',
         back_populates='provider',
     )
+
+    @property
+    def provider_approved(self) -> bool:
+        # Guarded by role so non-providers never trigger the profile lazy-load.
+        if self.role != 'provider':
+            return False
+        return bool(self.provider_profile and self.provider_profile.is_approved)
